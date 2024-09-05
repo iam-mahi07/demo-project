@@ -1,0 +1,43 @@
+name: CI/CD Pipeline #pipeline name
+
+name: CI/CD Pipeline for AWS ECS
+
+on:  #trigger configuration
+  push:
+    branches:
+      - main  #trigger pipeline on push to the main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest  #specify runner environment (server that runs workflows)
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Log in to Amazon ECR  #AWS ECR login stage
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+ 
+    - name: Build Docker image  #build stage
+      run: |
+        docker build -t ${{ secrets.ECR_REPOSITORY_URI }}:latest .
+
+    - name: Push Docker image to ECR #push stage
+      run: |
+        docker push ${{ secrets.ECR_REPOSITORY_URI }}:latest
+
+    - name: Deploy to ECS #deploy stage
+      run: |
+        aws ecs update-service --cluster <your-cluster-name> --service <your-service-name> --force-new-deployment
+
+    - name: Run integration tests #integration tests stage
+      run: |
+        curl --fail http://<your-ecs-service-endpoint>/health || exit 1
+
+
+    - name: Rollback on failure #rollback stage
+      if: failure()
+      run: |
+        aws ecs update-service --cluster <your-cluster-name> --service <your-service-name> --force-new-deployment --task-definition <previous-task-definition>
+
