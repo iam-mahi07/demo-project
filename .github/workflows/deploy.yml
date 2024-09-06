@@ -19,6 +19,8 @@ jobs:
 
     - name: Log in to Amazon ECR
       uses: aws-actions/amazon-ecr-login@v1
+      with:
+        region: ${{ secrets.AWS_REGION }}
 
     - name: Build Docker image
       run: |
@@ -66,24 +68,30 @@ jobs:
         # e.g., curl -f http://your-ecs-service-url/health-check
 
   rollback:
-    name: Rollback Deployment
-    runs-on: ubuntu-latest
-    if: failure()
-    needs: test
+   name: Rollback Deployment
+   runs-on: ubuntu-latest
+   if: failure()
+   needs: test
 
-    steps:
-    - name: Set up AWS CLI
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+   steps:
+   - name: Set up AWS CLI
+     uses: aws-actions/configure-aws-credentials@v2
+     with:
+      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      aws-region: ${{ secrets.AWS_REGION }}
 
-    - name: Rollback ECS Service
-      run: |
-        # Example rollback using AWS CLI
-        aws ecs update-service \
-          --cluster ${{ secrets.ECS_CLUSTER }} \
-          --service ${{ secrets.ECS_SERVICE }} \
-          --force-new-deployment \
-          --rollback
+   - name: Rollback ECS Service
+     run: |
+      # Retrieve the previous task definition revision
+      TASK_DEFINITION_ARN=$(aws ecs describe-services \
+        --cluster ${{ secrets.ECS_CLUSTER }} \
+        --services ${{ secrets.ECS_SERVICE }} \
+        --query 'services[0].taskDefinition' \
+        --output text)
+
+      # Update the ECS service to use the previous task definition revision
+      aws ecs update-service \
+        --cluster ${{ secrets.ECS_CLUSTER }} \
+        --service ${{ secrets.ECS_SERVICE }} \
+        --task-definition $TASK_DEFINITION_ARN
