@@ -1,7 +1,5 @@
 name: CI/CD Pipeline #pipeline name
 
-name: CI/CD Pipeline for AWS ECS
-
 on:  #trigger configuration
   push:
     branches:
@@ -29,15 +27,15 @@ jobs:
 
     - name: Deploy to ECS #deploy stage
       run: |
-        aws ecs update-service --cluster <your-cluster-name> --service <your-service-name> --force-new-deployment
+        aws ecs update-service --cluster demo-cluster --service demo-service --force-new-deployment
 
     - name: Run integration tests #integration tests stage
       run: |
-        curl --fail http://<your-ecs-service-endpoint>/health || exit 1
+        curl --fail http://demo-alb-2005290699.ap-south-1.elb.amazonaws.com/health || exit 1
 
 
     - name: Rollback on failure #rollback stage
       if: failure()
       run: |
-        aws ecs update-service --cluster <your-cluster-name> --service <your-service-name> --force-new-deployment --task-definition <previous-task-definition>
+        aws ecs update-service --cluster demo cluster --service demo-service --force-new-deployment --task-definition arn:aws:ecs:ap-south-1:822311367203:task-definition/demo-ecs-task:1
 
